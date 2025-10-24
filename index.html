@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#3B82F6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mis Comidas</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Mis Comidas</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;overflow-x:hidden;transition:background-color 0.3s ease}
@@ -133,10 +135,10 @@ function checkNotifications(){
     reminderTime.setMinutes(reminderTime.getMinutes()-settings.reminderMinutes);
     const reminderStr=`${reminderTime.getHours().toString().padStart(2,'0')}:${reminderTime.getMinutes().toString().padStart(2,'0')}`;
     if(currentTime===reminderStr&&settings.reminderMinutes>0){
-      new Notification('⏰ Recordatorio de Comida',{body:`En ${settings.reminderMinutes} minutos es hora de ${mealNames[type].toLowerCase()}`});
+      new Notification('⏰ Recordatorio de Comida',{body:`En ${settings.reminderMinutes} minutos es hora de ${mealNames[type].toLowerCase()}`,icon:'icons/icon-192.png'});
     }
     if(currentTime===mealTime){
-      new Notification('🍽️ Hora de Comer',{body:`Es hora de ${mealNames[type].toLowerCase()}`});
+      new Notification('🍽️ Hora de Comer',{body:`Es hora de ${mealNames[type].toLowerCase()}`,icon:'icons/icon-192.png'});
     }
   });
 }
@@ -195,6 +197,52 @@ function saveMeal(){
   showModal=false;
   mealDesc='';
   mealCat='saludable';
+  render();
+}
+
+function editMeal(mealId){
+  const meal=meals.find(m=>m.id==mealId);
+  if(!meal)return;
+  selectedMeal=meal.mealType;
+  mealDesc=meal.description;
+  mealCat=meal.category;
+  modalType='edit';
+  showModal=true;
+  window.editingMealId=mealId;
+  window.editingMealTime=meal.actualTime;
+  render();
+}
+
+function updateMeal(){
+  if(!mealDesc.trim()){
+    alert('Por favor describe qué comiste');
+    return;
+  }
+  const mealIndex=meals.findIndex(m=>m.id==window.editingMealId);
+  if(mealIndex===-1)return;
+  meals[mealIndex].actualTime=window.editingMealTime;
+  meals[mealIndex].description=mealDesc;
+  meals[mealIndex].category=mealCat;
+  localStorage.setItem('mealHistory',JSON.stringify(meals));
+  showModal=false;
+  mealDesc='';
+  mealCat='saludable';
+  window.editingMealId=null;
+  window.editingMealTime=null;
+  render();
+}
+
+function deleteMeal(){
+  if(!confirm('¿Estás seguro de eliminar este registro?'))return;
+  const mealIndex=meals.findIndex(m=>m.id==window.editingMealId);
+  if(mealIndex===-1)return;
+  meals.splice(mealIndex,1);
+  localStorage.setItem('mealHistory',JSON.stringify(meals));
+  showModal=false;
+  mealDesc='';
+  mealCat='saludable';
+  window.editingMealId=null;
+  window.editingMealTime=null;
   render();
 }
 
@@ -289,14 +337,14 @@ function render(){
     content=`<div class="header"><h1>Panel Principal</h1><p>${today}</p></div><div class="container">${Object.keys(settings.mealTimes).map(type=>{
       const status=getMealStatus(type);
       const entry=getTodayEntry(type);
-      return`<div class="meal-card ${status}"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.75rem"><div><h3>${mealNames[type]}</h3><p>⏰ ${settings.mealTimes[type]}</p></div><span class="status ${status}">${status==='completed'?'Registrada':status==='late'?'Atrasada':'Pendiente'}</span></div>${entry&&!entry.skipped?`<div style="background:${darkMode?'#0f172a':'#fff'};padding:.75rem;border-radius:.5rem;margin-bottom:.75rem"><p style="color:${darkMode?'#94a3b8':'#64748b'};font-size:.85rem">Hora real: ${entry.actualTime}</p><p style="color:${darkMode?'#f1f5f9':'#1e293b'};margin:.25rem 0">${entry.description}</p><span class="category-tag">${entry.category}</span></div>`:''}${status!=='completed'&&status!=='skipped'?`<div class="btn-group"><button class="btn btn-primary" onclick="addMeal('${type}')">Ya comí</button><button class="btn btn-secondary" onclick="skipMeal('${type}')">Saltar</button></div>`:''}</div>`;
+      return`<div class="meal-card ${status}"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.75rem"><div><h3>${mealNames[type]}</h3><p>⏰ ${settings.mealTimes[type]}</p></div><span class="status ${status}">${status==='completed'?'Registrada':status==='late'?'Atrasada':'Pendiente'}</span></div>${entry&&!entry.skipped?`<div style="background:${darkMode?'#0f172a':'#fff'};padding:.75rem;border-radius:.5rem;margin-bottom:.75rem"><p style="color:${darkMode?'#94a3b8':'#64748b'};font-size:.85rem">Hora real: ${entry.actualTime}</p><p style="color:${darkMode?'#f1f5f9':'#1e293b'};margin:.25rem 0">${entry.description}</p><span class="category-tag">${entry.category}</span><button onclick="editMeal('${entry.id}')" style="margin-top:.5rem;padding:.5rem 1rem;background:#6366f1;color:white;border:none;border-radius:.5rem;font-size:.85rem;cursor:pointer;width:100%">✏️ Editar</button></div>`:''}${status!=='completed'&&status!=='skipped'?`<div class="btn-group"><button class="btn btn-primary" onclick="addMeal('${type}')">Ya comí</button><button class="btn btn-secondary" onclick="skipMeal('${type}')">Saltar</button></div>`:''}</div>`;
     }).join('')}</div>`;
   }
   if(screen==='history'){
     const grouped={};
     meals.forEach(m=>{if(!grouped[m.date])grouped[m.date]=[];grouped[m.date].push(m);});
     const dates=Object.keys(grouped).sort().reverse();
-    content=`<div class="header"><h1>Historial</h1></div><div class="container">${dates.length===0?`<div class="empty-state"><div class="icon">📅</div><p>Aún no has registrado comidas</p></div>`:dates.map(date=>`<div class="meal-card"><h3 style="color:#3b82f6;margin-bottom:1rem">${new Date(date+'T12:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})}</h3>${grouped[date].map(m=>`<div class="history-item"><div style="display:flex;justify-content:space-between"><strong>${mealNames[m.mealType]}</strong><span class="time">${m.skipped?'Saltada':m.actualTime}</span></div>${!m.skipped?`<p class="desc">${m.description}</p><span class="category-tag">${m.category}</span>`:''}</div>`).join('')}</div>`).join('')}</div>`;
+    content=`<div class="header"><h1>Historial</h1></div><div class="container">${dates.length===0?`<div class="empty-state"><div class="icon">📅</div><p>Aún no has registrado comidas</p></div>`:dates.map(date=>`<div class="meal-card"><h3 style="color:#3b82f6;margin-bottom:1rem">${new Date(date+'T12:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})}</h3>${grouped[date].map(m=>`<div class="history-item"><div style="display:flex;justify-content:space-between"><strong>${mealNames[m.mealType]}</strong><span class="time">${m.skipped?'Saltada':m.actualTime}</span></div>${!m.skipped?`<p class="desc">${m.description}</p><span class="category-tag">${m.category}</span><button onclick="editMeal('${m.id}')" style="margin-top:.5rem;padding:.4rem .8rem;background:#6366f1;color:white;border:none;border-radius:.4rem;font-size:.8rem;cursor:pointer">✏️ Editar</button>`:''}</div>`).join('')}</div>`).join('')}</div>`;
   }
   if(screen==='stats'){
     const week=meals.filter(m=>{const d=new Date(m.date);const w=new Date();w.setDate(w.getDate()-7);return d>=w;});
@@ -304,15 +352,9 @@ function render(){
     week.forEach(m=>{if(!m.skipped&&m.category)cats[m.category]=(cats[m.category]||0)+1;});
     content=`<div class="header"><h1>Estadísticas</h1><p>Última semana</p></div><div class="container"><div class="stats-grid"><div class="stat-card blue"><p>Esta semana</p><h2>${week.filter(m=>!m.skipped).length}</h2></div><div class="stat-card purple"><p>Total</p><h2>${meals.filter(m=>!m.skipped).length}</h2></div></div>${Object.keys(cats).length>0?`<div class="meal-card"><h3 style="margin-bottom:1rem">📊 Por categoría</h3>${Object.entries(cats).map(([c,n])=>`<div style="display:flex;justify-content:space-between;padding:.5rem;background:${darkMode?'#0f172a':'#f8fafc'};border-radius:.5rem;margin-bottom:.5rem"><span style="text-transform:capitalize">${c}</span><strong style="color:#3b82f6">${n}</strong></div>`).join('')}</div>`:''}</div>`;
   }
-  app.innerHTML=content+`<div class="nav"><button class="${screen==='dashboard'?'active':''}" onclick="screen='dashboard';showMoreMenu=false;render()">🏠<br>Panel</button><button class="${screen==='history'?'active':''}" onclick="screen='history';showMoreMenu=false;render()">📅<br>Historial</button><button class="${screen==='stats'?'active':''}" onclick="screen='stats';showMoreMenu=false;render()">📊<br>Stats</button><button onclick="showMoreMenu=!showMoreMenu;render()">☰<br>Más</button></div>${showMoreMenu?`<div style="position:fixed;bottom:4.5rem;right:1rem;background:${darkMode?'#1e293b':'#fff'};border-radius:.75rem;box-shadow:0 4px 12px rgba(0,0,0,.15);border:2px solid ${darkMode?'#334155':'#e2e8f0'};min-width:180px;z-index:150"><button onclick="openSettings()" style="width:100%;text-align:left;padding:1rem;border:none;background:none;display:flex;align-items:center;gap:.75rem;cursor:pointer;color:${darkMode?'#cbd5e1':'inherit'}">⚙️ <span>Configuración</span></button><button onclick="openSupport()" style="width:100%;text-align:left;padding:1rem;border:none;background:none;display:flex;align-items:center;gap:.75rem;cursor:pointer;border-top:1px solid ${darkMode?'#334155':'#e2e8f0'};color:${darkMode?'#cbd5e1':'inherit'}">❓ <span>Soporte</span></button></div>`:''}${showModal&&modalType==='register'?`<div class="modal show"><div class="modal-content"><h2>Registrar ${mealNames[selectedMeal]}</h2><div class="form-group"><label>Hora actual</label><input type="text" value="${new Date().toTimeString().slice(0,5)}" disabled></div><div class="form-group"><label>¿Qué comiste?</label><textarea placeholder="Describe tu comida..." oninput="mealDesc=this.value">${mealDesc}</textarea></div><div class="form-group"><label>Categoría</label><select onchange="mealCat=this.value"><option value="saludable">Saludable</option><option value="chatarra">Chatarra</option><option value="casera">Casera</option><option value="otra">Otra</option></select></div><div class="btn-group"><button class="btn btn-secondary" onclick="showModal=false;mealDesc='';render()">Cancelar</button><button class="btn btn-primary" onclick="saveMeal()">Guardar</button></div></div></div>`:''}${showModal&&modalType==='settings'?`<div class="modal show"><div class="modal-content"><h2>⚙️ Configuración</h2><h3 style="margin-bottom:.75rem;color:${darkMode?'#f1f5f9':'#1e293b'}">Horarios de comidas</h3>${Object.entries(mealNames).map(([key,name])=>`<div class="time-setting"><span>${name}</span><input type="time" value="${tempSettings.mealTimes[key]}" onchange="tempSettings.mealTimes['${key}']=this.value"></div>`).join('')}<h3 style="margin:1.5rem 0 .75rem 0;color:${darkMode?'#f1f5f9':'#1e293b'}">Notificaciones</h3><div class="checkbox-group"><span>Activar recordatorios</span><input type="checkbox" ${tempSettings.notificationsEnabled?'checked':''} onchange="tempSettings.notificationsEnabled=this.checked"></div><div class="form-group"><label>Recordar minutos antes</label><select value="${tempSettings.reminderMinutes}" onchange="tempSettings.reminderMinutes=Number(this.value)"><option value="0" ${tempSettings.reminderMinutes===0?'selected':''}>0 minutos</option><option value="5" ${tempSettings.reminderMinutes===5?'selected':''}>5 minutos</option><option value="10" ${tempSettings.reminderMinutes===10?'selected':''}>10 minutos</option><option value="15" ${tempSettings.reminderMinutes===15?'selected':''}>15 minutos</option><option value="30" ${tempSettings.reminderMinutes===30?'selected':''}>30 minutos</option></select></div><h3 style="margin:1.5rem 0 .75rem 0;color:${darkMode?'#f1f5f9':'#1e293b'}">Apariencia</h3><div class="checkbox-group"><span>${darkMode?'Desactivar':'Activar'} modo oscuro</span><input type="checkbox" ${darkMode?'checked':''} onchange="toggleDarkMode()"></div><div class="warning"><p>⚠️ Tus datos se guardan localmente. Si desinstalas la app o borras datos del navegador, perderás tu información.</p></div><button class="btn btn-primary" onclick="saveSettings()">Guardar cambios</button><button class="btn btn-danger" onclick="deleteAllData()" style="margin-top:.5rem">Borrar todos mis datos</button><button class="btn btn-secondary" onclick="showModal=false;render()" style="margin-top:.5rem">Cancelar</button></div></div>`:''}${showModal&&modalType==='support'?`<div class="modal show"><div class="modal-content"><h2>❓ Soporte</h2><h3 style="margin-bottom:.75rem;color:${darkMode?'#f1f5f9':'#1e293b'}">Preguntas frecuentes</h3><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Cómo cambio los horarios?</h4><p style="font-size:.9rem;color:#64748b">Ve a Configuración en el menú Más y ajusta los horarios de cada comida.</p></div><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Cómo funcionan las notificaciones?</h4><p style="font-size:.9rem;color:#64748b">La app te notificará minutos antes (según configures) y a la hora exacta de cada comida.</p></div><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Dónde se guardan mis datos?</h4><p style="font-size:.9rem;color:#64748b">Todos tus datos se guardan localmente en tu dispositivo.</p></div><button class="btn btn-primary" onclick="restartTutorial()">Ver tutorial nuevamente</button><div style="background:${darkMode?'#0f172a':'#f1f5f9'};padding:1rem;border-radius:.75rem;text-align:center;margin-top:1rem"><p style="font-size:.85rem;color:${darkMode?'#94a3b8':'#64748b'}">Versión 1.0</p><p style="font-size:.75rem;color:${darkMode?'#64748b':'#94a3b8'};margin-top:.25rem">Desarrollado con HTML/JS</p></div><button class="btn btn-secondary" onclick="showModal=false;render()" style="margin-top:1rem">Cerrar</button></div></div>`:''}`;
+  app.innerHTML=content+`<div class="nav"><button class="${screen==='dashboard'?'active':''}" onclick="screen='dashboard';showMoreMenu=false;render()">🏠<br>Panel</button><button class="${screen==='history'?'active':''}" onclick="screen='history';showMoreMenu=false;render()">📅<br>Historial</button><button class="${screen==='stats'?'active':''}" onclick="screen='stats';showMoreMenu=false;render()">📊<br>Stats</button><button onclick="showMoreMenu=!showMoreMenu;render()">☰<br>Más</button></div>${showMoreMenu?`<div style="position:fixed;bottom:4.5rem;right:1rem;background:${darkMode?'#1e293b':'#fff'};border-radius:.75rem;box-shadow:0 4px 12px rgba(0,0,0,.15);border:2px solid ${darkMode?'#334155':'#e2e8f0'};min-width:180px;z-index:150"><button onclick="openSettings()" style="width:100%;text-align:left;padding:1rem;border:none;background:none;display:flex;align-items:center;gap:.75rem;cursor:pointer;color:${darkMode?'#cbd5e1':'inherit'}">⚙️ <span>Configuración</span></button><button onclick="openSupport()" style="width:100%;text-align:left;padding:1rem;border:none;background:none;display:flex;align-items:center;gap:.75rem;cursor:pointer;border-top:1px solid ${darkMode?'#334155':'#e2e8f0'};color:${darkMode?'#cbd5e1':'inherit'}">❓ <span>Soporte</span></button></div>`:''}${showModal&&modalType==='register'?`<div class="modal show"><div class="modal-content"><h2>Registrar ${mealNames[selectedMeal]}</h2><div class="form-group"><label>Hora actual</label><input type="text" value="${new Date().toTimeString().slice(0,5)}" disabled></div><div class="form-group"><label>¿Qué comiste?</label><textarea placeholder="Describe tu comida..." oninput="mealDesc=this.value">${mealDesc}</textarea></div><div class="form-group"><label>Categoría</label><select onchange="mealCat=this.value"><option value="saludable">Saludable</option><option value="chatarra">Chatarra</option><option value="casera">Casera</option><option value="otra">Otra</option></select></div><div class="btn-group"><button class="btn btn-secondary" onclick="showModal=false;mealDesc='';render()">Cancelar</button><button class="btn btn-primary" onclick="saveMeal()">Guardar</button></div></div></div>`:''}${showModal&&modalType==='edit'?`<div class="modal show"><div class="modal-content"><h2>✏️ Editar ${mealNames[selectedMeal]}</h2><div class="form-group"><label>Hora registrada</label><input type="time" value="${window.editingMealTime}" onchange="window.editingMealTime=this.value"></div><div class="form-group"><label>¿Qué comiste?</label><textarea placeholder="Describe tu comida..." oninput="mealDesc=this.value">${mealDesc}</textarea></div><div class="form-group"><label>Categoría</label><select onchange="mealCat=this.value"><option value="saludable" ${mealCat==='saludable'?'selected':''}>Saludable</option><option value="chatarra" ${mealCat==='chatarra'?'selected':''}>Chatarra</option><option value="casera" ${mealCat==='casera'?'selected':''}>Casera</option><option value="otra" ${mealCat==='otra'?'selected':''}>Otra</option></select></div><button class="btn btn-primary" onclick="updateMeal()">💾 Guardar cambios</button><button class="btn btn-danger" onclick="deleteMeal()" style="margin-top:.5rem">🗑️ Eliminar registro</button><button class="btn btn-secondary" onclick="showModal=false;mealDesc='';render()" style="margin-top:.5rem">Cancelar</button></div></div>`:''}${showModal&&modalType==='settings'?`<div class="modal show"><div class="modal-content"><h2>⚙️ Configuración</h2><h3 style="margin-bottom:.75rem;color:${darkMode?'#f1f5f9':'#1e293b'}">Horarios de comidas</h3>${Object.entries(mealNames).map(([key,name])=>`<div class="time-setting"><span>${name}</span><input type="time" value="${tempSettings.mealTimes[key]}" onchange="tempSettings.mealTimes['${key}']=this.value"></div>`).join('')}<h3 style="margin:1.5rem 0 .75rem 0;color:${darkMode?'#f1f5f9':'#1e293b'}">Notificaciones</h3><div class="checkbox-group"><span>Activar recordatorios</span><input type="checkbox" ${tempSettings.notificationsEnabled?'checked':''} onchange="tempSettings.notificationsEnabled=this.checked"></div><div class="form-group"><label>Recordar minutos antes</label><select value="${tempSettings.reminderMinutes}" onchange="tempSettings.reminderMinutes=Number(this.value)"><option value="0" ${tempSettings.reminderMinutes===0?'selected':''}>0 minutos</option><option value="5" ${tempSettings.reminderMinutes===5?'selected':''}>5 minutos</option><option value="10" ${tempSettings.reminderMinutes===10?'selected':''}>10 minutos</option><option value="15" ${tempSettings.reminderMinutes===15?'selected':''}>15 minutos</option><option value="30" ${tempSettings.reminderMinutes===30?'selected':''}>30 minutos</option></select></div><h3 style="margin:1.5rem 0 .75rem 0;color:${darkMode?'#f1f5f9':'#1e293b'}">Apariencia</h3><div class="checkbox-group"><span>${darkMode?'Desactivar':'Activar'} modo oscuro</span><input type="checkbox" ${darkMode?'checked':''} onchange="toggleDarkMode()"></div><div class="warning"><p>⚠️ Tus datos se guardan localmente. Si desinstalas la app o borras datos del navegador, perderás tu información.</p></div><button class="btn btn-primary" onclick="saveSettings()">Guardar cambios</button><button class="btn btn-danger" onclick="deleteAllData()" style="margin-top:.5rem">Borrar todos mis datos</button><button class="btn btn-secondary" onclick="showModal=false;render()" style="margin-top:.5rem">Cancelar</button></div></div>`:''}${showModal&&modalType==='support'?`<div class="modal show"><div class="modal-content"><h2>❓ Soporte</h2><h3 style="margin-bottom:.75rem;color:${darkMode?'#f1f5f9':'#1e293b'}">Preguntas frecuentes</h3><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Cómo cambio los horarios?</h4><p style="font-size:.9rem;color:#64748b">Ve a Configuración en el menú Más y ajusta los horarios de cada comida.</p></div><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Cómo funcionan las notificaciones?</h4><p style="font-size:.9rem;color:#64748b">La app te notificará minutos antes (según configures) y a la hora exacta de cada comida.</p></div><div class="meal-card"><h4 style="color:#3b82f6;margin-bottom:.5rem">¿Dónde se guardan mis datos?</h4><p style="font-size:.9rem;color:#64748b">Todos tus datos se guardan localmente en tu dispositivo.</p></div><button class="btn btn-primary" onclick="restartTutorial()">Ver tutorial nuevamente</button><div style="background:${darkMode?'#0f172a':'#f1f5f9'};padding:1rem;border-radius:.75rem;text-align:center;margin-top:1rem"><p style="font-size:.85rem;color:${darkMode?'#94a3b8':'#64748b'}">Versión 1.0</p><p style="font-size:.75rem;color:${darkMode?'#64748b':'#94a3b8'};margin-top:.25rem">Desarrollado con HTML/JS</p></div><button class="btn btn-secondary" onclick="showModal=false;render()" style="margin-top:1rem">Cerrar</button></div></div>`:''}`;
 }
-// Registrar Service Worker
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('service-worker.js')
-    .then(reg=>console.log('SW registrado',reg))
-    .catch(err=>console.log('SW error',err));
-}
-  
+
 function init(){
   const tutDone=localStorage.getItem('tutorialCompleted');
   const savedSettings=localStorage.getItem('mealSettings');
@@ -333,6 +375,11 @@ function init(){
   }
   checkNotifications();
   setInterval(checkNotifications,60000);
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg=>console.log('SW registrado',reg))
+      .catch(err=>console.log('SW error',err));
+  }
   render();
 }
 
